@@ -1,0 +1,11 @@
+.App {
+  padding: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.App-title {
+  margin: 0 0 20px;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
