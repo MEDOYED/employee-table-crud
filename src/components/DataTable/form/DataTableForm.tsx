@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { AgGridProvider, AgGridReact } from 'ag-grid-react';
-import arrayMutators from 'final-form-arrays';
+import { AgGridReact } from 'ag-grid-react';
 import { Form } from 'react-final-form';
-import { defaultColDef, getColumnDefs } from '../config/columnDefs';
-import { gridModules, gridTheme } from '../config/gridConfig';
-import { useDataTableContext } from '../context/useDataTableContext';
-import { Row } from '../types';
-import { RowsFieldArray } from './RowsFieldArray';
+import arrayMutators from 'final-form-arrays';
+import { getColumnDefs } from '../config/columnDefs';
+import { useDataTable } from '../context/DataTableContext';
+import { ShowErrorsContext } from '../validation/ShowErrorsContext';
+import { validateRows } from '../validation/validateRows';
+import type { Row, RowsFormValue } from '../types';
+import { GridBody } from './GridBody';
+import { STATUSES, DEPARTMENTS } from '../data/constants';
 import '../DataTable.css';
 
 interface IProps {
@@ -17,6 +19,24 @@ interface IProps {
   onSave: (rows: Row[]) => void;
 }
 
+function buildInitialValues(rows: Row[]): RowsFormValue {
+  return {
+    rows: {
+      byId: Object.fromEntries(
+        rows.map(({ id, ...data }) => [id, data])
+      ),
+      allIds: rows.map(r => r.id),
+    },
+  };
+}
+
+function flattenRows(values: RowsFormValue): Row[] {
+  return values.rows.allIds.map(id => ({
+    id,
+    ...values.rows.byId[id],
+  }));
+}
+
 export function DataTableForm({
   savedRows,
   isEditing,
@@ -24,76 +44,91 @@ export function DataTableForm({
   onCancel,
   onSave,
 }: IProps) {
-  const { isLoading } = useDataTableContext();
+  const { isLoading } = useDataTable();
   const gridRef = useRef<AgGridReact>(null);
   const columnDefs = useMemo(() => getColumnDefs(isEditing), [isEditing]);
+  const initialValues = useMemo(() => buildInitialValues(savedRows), [savedRows]);
+  const formKey = useMemo(() => JSON.stringify(savedRows), [savedRows]);
 
   useEffect(() => {
     gridRef.current?.api?.refreshCells({ force: true });
   }, [isEditing]);
 
-  const handleSubmit = (values: { rows: Row[] }) => {
-    onSave(values.rows);
+  const handleSubmit = (values: RowsFormValue) => {
+    onSave(flattenRows(values));
   };
 
   return (
     <Form
+      key={formKey}
       mutators={{ ...arrayMutators }}
-      initialValues={{ rows: savedRows }}
+      initialValues={initialValues}
       onSubmit={handleSubmit}
-      render={({ handleSubmit: submitForm, form, values }) => (
-        <form onSubmit={submitForm}>
-          <div className="toolbar">
-            {!isEditing ? (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  form.restart({ rows: savedRows });
-                  onEdit();
-                }}
-              >
-                Edit
-              </button>
-            ) : (
-              <>
+      validate={validateRows}
+      render={({ handleSubmit: submitForm, form, values, submitFailed }) => (
+        <ShowErrorsContext.Provider value={!!submitFailed}>
+          <form onSubmit={submitForm}>
+            <div className="toolbar">
+              {!isEditing ? (
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-primary"
                   onClick={() => {
-                    form.restart({ rows: savedRows });
-                    onCancel();
+                    form.restart(buildInitialValues(savedRows));
+                    onEdit();
                   }}
                 >
-                  Cancel
+                  Edit
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Save
-                </button>
-              </>
-            )}
-          </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      form.restart(buildInitialValues(savedRows));
+                      onCancel();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Save
+                  </button>
 
-          <RowsFieldArray>
-            {() => (
-              <AgGridProvider modules={gridModules}>
-                <div className="grid-container">
-                  <AgGridReact
-                    ref={gridRef}
-                    theme={gridTheme}
-                    rowData={values.rows}
-                    columnDefs={columnDefs}
-                    defaultColDef={defaultColDef}
-                    loading={isLoading}
-                    suppressClickEdit
-                    suppressRowVirtualisation
-                    suppressColumnVirtualisation
-                  />
-                </div>
-              </AgGridProvider>
-            )}
-          </RowsFieldArray>
-        </form>
+                  <button
+                    type="button"
+                    className="btn btn-add"
+                    onClick={() => {
+                      const newId = Math.max(...values.rows.allIds, 0) + 1;
+
+                      form.batch(() => {
+                        (form.change as (name: string, value: unknown) => void)(`rows.byId.${newId}`, {
+                          name: `User ${newId}`,
+                          email: `user${newId}@example.com`,
+                          department: DEPARTMENTS[newId % DEPARTMENTS.length],
+                          status: STATUSES[newId % STATUSES.length],
+                          salary: `$${(30000 + newId * 500).toLocaleString('en-US')}`,
+                        });
+                        form.mutators.insert('rows.allIds', 0, newId);
+                      });
+                    }}
+                  >
+                    Add new employee
+                  </button>
+                </>
+              )}
+            </div>
+
+            <GridBody
+              ids={values.rows.allIds}
+              byId={values.rows.byId}
+              columnDefs={columnDefs}
+              gridRef={gridRef}
+              isLoading={isLoading}
+            />
+          </form>
+        </ShowErrorsContext.Provider>
       )}
     />
   );

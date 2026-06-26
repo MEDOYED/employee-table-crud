@@ -1,4 +1,5 @@
 import { ColDef } from 'ag-grid-community';
+import { ActionsCell } from '../cells/ActionsCell';
 import { DepartmentCell } from '../cells/DepartmentCell';
 import { EmailCell } from '../cells/EmailCell';
 import { NameCell } from '../cells/NameCell';
@@ -52,6 +53,13 @@ export function getColumnDefs(isEditing: boolean): ColDef<Row>[] {
       width: 120,
       cellRenderer: SalaryCell,
       cellRendererParams: { isEditing },
+    },
+    {
+      headerName: 'Delete',
+      width: 100,
+      cellRenderer: ActionsCell,
+      cellRendererParams: { isEditing },
+      pinned: 'right',
     },
   ];
 }

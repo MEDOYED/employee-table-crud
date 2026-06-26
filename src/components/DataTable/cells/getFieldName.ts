@@ -5,5 +5,9 @@ export function getFieldName(
   node: IRowNode<Row> | null | undefined,
   field: keyof Row
 ) {
-  return `rows[${node?.rowIndex ?? 0}].${field}`;
+  const id = node?.data?.id;
+  if (id == null) {
+    return `rows.byId.0.${field}`
+  }
+  return `rows.byId.${id}.${field}`;
 }

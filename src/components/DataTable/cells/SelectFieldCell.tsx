@@ -1,5 +1,7 @@
+import { useContext } from 'react';
 import { ICellRendererParams } from 'ag-grid-community';
 import { Field } from 'react-final-form';
+import { ShowErrorsContext } from '../validation/ShowErrorsContext';
 import { Row } from '../types';
 import { getFieldName } from './getFieldName';
 
@@ -16,20 +18,30 @@ export function SelectFieldCell({
   field,
   options,
 }: IProps) {
+  const showErrors = useContext(ShowErrorsContext);
+
   if (!isEditing) {
     return <span>{value}</span>;
   }
 
   return (
     <Field name={getFieldName(node, field)}>
-      {({ input }) => (
-        <select {...input} className="cell-input">
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+      {({ input, meta }) => (
+        <div className="cell-wrapper">
+          <select
+            {...input}
+            className={`cell-input${showErrors && meta.error ? ' cell-input--error' : ''}`}
+          >
+            {options.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          {showErrors && meta.error && (
+            <span className="cell-error">{meta.error}</span>
+          )}
+        </div>
       )}
     </Field>
   );
