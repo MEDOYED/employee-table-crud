@@ -21,8 +21,9 @@ function DataTable() {
   );
 }
 
-export default () => (
+const DataTableWithProvider = () => (
   <DataTableProvider>
     <DataTable />
   </DataTableProvider>
 );
+export default DataTableWithProvider;
